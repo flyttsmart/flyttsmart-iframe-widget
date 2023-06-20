@@ -30,8 +30,9 @@
 					onEvent: [],
 					onCmdRequest: []
 				},
+				client: AuthClient,
 				helloWorld: function () {
-					console.log("Hello World!");
+					console.log("Hello World! ::", this.apiUrl);
 				},
 				setProperties: function (props) {
 					for (let prop in props) {
@@ -42,7 +43,7 @@
 					flyttSmartApi.doCommand('init');
 				},
 				doCommand: function (name, val) {
-					this.triggerEvent('onCmdRequest', {cmd: name, value: val});
+					this.triggerEvent('onCmdRequest', { cmd: name, value: val });
 				},
 				onEvent: function (listener) {
 					this.addEventListener('onEvent', listener);

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Flyttsmart IFRAME API</title>
+
+	<script type="application/javascript">
+		/**
+		 * Flyttsmart Auth API Client Class
+		 *
+		 * @type {AuthClient}
+		 * @property {string} apiUrl - Flyttsmart backend API URL
+		 * @property {string} baseUrl - Base URL to use for deep linking
+		 * @property {string} clientId - Client ID
+		 * @property {string} pno - Personal Number
+		 */
+		class AuthClient extends EventTarget {
+			constructor(apiUrl, baseUrl, clientId, pno) {
+				super();
+				this.apiUrl = apiUrl;
+				this.baseUrl = baseUrl;
+				this.clientId = clientId;
+				this.pno = pno;
+				this.authCode = null;
+				this.accessToken = null;
+			}
+
+			/**
+			 * Get the auth code from the API
+			 * @returns {Promise<void>}
+			 */
+			async getAuthCode() {
+				try {
+					const response = await fetch(`${this.apiUrl}/external/code`, {
+						method: 'POST',
+						headers: {'clientId': this.clientId}
+					});
+					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+					this.authCode = await response.text();
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: 'Auth code received...',
+							statusType: 'success'
+						}
+					}));
+				} catch (error) {
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: error.message,
+							statusType: 'error'
+						}
+					}));
+				}
+			}
+
+			/**
+			 * Get the access token from the API
+			 * @returns {Promise<void>}
+			 */
+			async getAccessToken() {
+				try {
+					await this.getAuthCode();
+					const response = await fetch(`${this.apiUrl}/external/token`, {
+						method: 'POST',
+						headers: {
+							'clientId': this.clientId,
+							'Content-Type': 'application/json',
+							'Authorization': 'Basic ' + btoa(this.clientId + ':' + this.authCode)
+						},
+						body: JSON.stringify({authCode: this.authCode})
+					});
+					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+					const responseBody = await response.json();
+					this.accessToken = responseBody.accessToken;
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: 'Access token received...',
+							statusType: 'success'
+						}
+					}));
+				} catch (error) {
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: error.message,
+							statusType: 'error'
+						}
+					}));
+				}
+			}
+
+			/**
+			 * Login the user
+			 * @returns {Promise<void>}
+			 */
+			async loginUser() {
+				try {
+					await this.getAccessToken();
+					const response = await fetch(`${this.apiUrl}/external/users/login`, {
+						method: 'POST',
+						headers: {
+							'clientId': this.clientId,
+							'Content-Type': 'application/json',
+							'Authorization': 'Bearer ' + this.accessToken
+						},
+						body: JSON.stringify({pno: this.pno})
+					});
+					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+					const rawBody = await response.text();
+					const data = JSON.parse(rawBody);
+					const url = new URL("https://" + data.url);
+
+					this.accessToken = url.searchParams.get("token");
+
+					console.debug("*** this.accessToken ::", this.accessToken);
+
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: 'User logged in...',
+							statusType: 'success',
+							token: this.accessToken
+						}
+					}));
+				} catch (error) {
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: error.message,
+							statusType: 'error'
+						}
+					}));
+				}
+			}
+		}
+
+		/**
+		 * Flyttsmart IFRAME API
+		 */
+		(function (global) {
+			const flyttSmartApi = {
+				iFrameOrigin: undefined,
+				uiElements: {
+					widgetOwner: null,
+					statusEl: null,
+					widgetFrame: null
+				},
+				isInitialized: false,
+				apiUrl: 'https://api.flyttsmart.se',
+				domElement: '#flyttsmartWidget',
+				baseUrl: '',
+				clientId: '',
+				pno: '',
+				eventListeners: {
+					onEvent: [],
+					onCmdRequest: []
+				},
+				client: AuthClient,
+				setProperties: function (props) {
+					for (let prop in props) {
+						if (this.hasOwnProperty(prop)) {
+							this[prop] = props[prop];
+						}
+					}
+					this.init()
+				},
+				/**
+				 * Document ready event handler
+				 */
+				onDOMReady: function () {
+					if (!this.isInitialized) {
+						this.initUI();
+
+						this.isInitialized = true;
+					}
+				},
+				/**
+				 * Initialize the IFrame API
+				 */
+				init: function (props) {
+					this.apiUrl = settings.apiUrl || this.apiUrl;
+					this.clientId = settings.clientId || this.clientId;
+					this.pno = settings.pno || this.pno;
+					this.domElement = settings.domElement || this.domElement;
+					this.baseUrl = settings.baseUrl || this.baseUrl;
+					this.authClient = new AuthClient(this.apiUrl, this.baseUrl, this.clientId, this.pno);
+
+					this.doCommand('API:INIT', props);
+					return this;
+				},
+
+				/**
+				 * Initialize the UI
+				 */
+				initUI: function () {
+					console.log("initUI ::", this.domElement);
+					const widgetOwner = document.querySelector(this.domElement);
+					if(!widgetOwner) {
+						log('Error: Widget Owner not found');
+						return;
+					}
+					const statusEl = document.createElement('div');
+					const widgetFrame = document.createElement('iframe');
+					widgetOwner.appendChild(statusEl);
+					widgetOwner.appendChild(widgetFrame);
+
+					widgetFrame.style.display = 'none';
+
+					authClient.addEventListener('statusEvent', (event) => {
+						statusEl.textContent = event.detail.statusText;
+						if (event.detail.statusType === 'error') {
+							statusEl.style.color = 'red';
+						} else {
+							statusEl.style.color = 'black';
+							if (event.detail.statusText === 'User logged in...') {
+								statusEl.style.display = 'none';
+								widgetFrame.style.display = 'block';
+								IFRAME_URL += "?token=" + authClient.accessToken;
+								widgetFrame.src = IFRAME_URL;
+							}
+						}
+					});
+
+					this.doCommand('API:INIT_UI');
+				},
+
+				initIframe: function (iframe) {
+					iframe.onload = function () {
+						let intervalId = null;
+						let isIntervalActive = true;
+
+						window.addEventListener('message', event => {
+							// IMPORTANT: Check the origin of the data!
+							if (this.iFrameOrigin && event.origin !== this.iFrameOrigin) return;
+
+							if (event.data.type === 'PONG' && isIntervalActive) {
+								clearInterval(intervalId);
+								isIntervalActive = false;
+								iframe.contentWindow.postMessage({type: 'ACCESS', accessToken: authClient.accessToken});
+							}
+						}, false);
+
+						intervalId = setInterval(() => {
+							if (isIntervalActive) {
+								iframe.contentWindow.postMessage({type: 'PING'}, '*');
+							}
+						}, 1000);
+					};
+
+					await this.authClient.loginUser();
+				},
+
+				initDebugWidget: function (props) {
+					this.initUI();
+				},
+
+				doCommand: function (name, val) {
+					this.triggerEvent('onCmdRequest', { cmd: name, value: val });
+				},
+				onEvent: function (listener) {
+					this.addEventListener('onEvent', listener);
+				},
+				onCmdRequest: function (listener) {
+					this.addEventListener('onCmdRequest', listener);
+				},
+				triggerEvent: function (eventName, event) {
+					this.eventListeners[eventName].forEach(listener => listener(event));
+				},
+				addEventListener: function (eventName, listener) {
+					if (typeof listener === "function") {
+						this.eventListeners[eventName].push(listener);
+					}
+				}
+			};
+
+			globalThis.flyttSmartApi = flyttSmartApi;
+
+			document.addEventListener("DOMContentLoaded", function() {
+				flyttSmartApi.onDOMReady();
+			});
+
+		})(window);
+
+
+		//
+		// Init API,
+		// Attach event listeners, etc...
+
+		const debug = true;
+		const DEBUG_URL = "http://localhost:3020/iframe.html";
+		const EMBED_URL = "https://www.flyttsmart.se";
+		var IFRAME_URL = debug ? DEBUG_URL : EMBED_URL;
+
+
+		/**
+		 * Initialize the widget
+		 */
+		globalThis.flyttSmartApi.onEvent(function (event) {
+			console.log("onEvent triggered with ", event);
+		});
+
+		//
+		// Widget Configuration
+		//
+		const FLYTTSMART_SETTINGS = {
+			apiUrl: 'https://api.flyttsmart.se',
+			baseUrl: 'http://localhost:3000',
+			clientId: '5f1b0b3b4b0b0b0b0b0b0b0b',
+			pno: '199001010000',
+			domElement: '#flyttsmartWidget',
+		};
+
+		globalThis.initWidget(
+			FLYTTSMART_SETTINGS
+		);
+
+	</script>
+
+	<style>
+		body {
+			font-family: Beirut, Helvetica, sans-serif;
+		}
+
+		#flyttsmart {
+			width: 100%;
+			height: 100%;
+			min-height: 100px;
+			background: aliceblue;
+			border: dotted 1px #000000;
+		}
+	</style>
+
+</head>
+<body>
+
+	<button onclick="initDebugWidget()">Initialize Widget</button>
+
+
+	<div style="background-color: darkgrey; width: 100%">
+		<h1>IFrame Widget</h1>
+		<div id="flyttsmart"></div>
+	</div>
+
+</body>
+</html>

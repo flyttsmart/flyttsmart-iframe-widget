@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Flyttsmart IFtrame Widget - Unit Test Runner</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mocha@9.1.1/mocha.css">
+</head>
+<body>
+	<div id="mocha"></div>
+
+	<script src="../node_modules/mocha/mocha.js"></script>
+	<script src="../node_modules/chai/chai.js"></script>
+
+
+	<script src="fs-iframe-widget-script.js"></script>
+	<script src="fs-iframe-widget_test.js"></script>
+
+	<script>
+		mocha.setup('bdd');
+		mocha.run();
+	</script>
+</body>
+</html>

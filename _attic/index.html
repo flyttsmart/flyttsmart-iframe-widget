@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<title>Flyttsmart IFRAME API</title>
@@ -33,7 +34,7 @@
 				try {
 					const response = await fetch(`${this.apiUrl}/external/code`, {
 						method: 'POST',
-						headers: {'clientId': this.clientId}
+						headers: { 'clientId': this.clientId }
 					});
 					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 					this.authCode = await response.text();
@@ -67,7 +68,7 @@
 							'Content-Type': 'application/json',
 							'Authorization': 'Basic ' + btoa(this.clientId + ':' + this.authCode)
 						},
-						body: JSON.stringify({authCode: this.authCode})
+						body: JSON.stringify({ authCode: this.authCode })
 					});
 					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 					const responseBody = await response.json();
@@ -102,7 +103,7 @@
 							'Content-Type': 'application/json',
 							'Authorization': 'Bearer ' + this.accessToken
 						},
-						body: JSON.stringify({pno: this.pno})
+						body: JSON.stringify({ pno: this.pno })
 					});
 					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -193,7 +194,7 @@
 				initUI: function () {
 					console.log("initUI ::", this.domElement);
 					const widgetOwner = document.querySelector(this.domElement);
-					if(!widgetOwner) {
+					if (!widgetOwner) {
 						log('Error: Widget Owner not found');
 						return;
 					}
@@ -222,7 +223,7 @@
 					this.doCommand('API:INIT_UI');
 				},
 
-				initIframe: function (iframe) {
+				initIframe: async function (iframe) {
 					iframe.onload = function () {
 						let intervalId = null;
 						let isIntervalActive = true;
@@ -234,13 +235,13 @@
 							if (event.data.type === 'PONG' && isIntervalActive) {
 								clearInterval(intervalId);
 								isIntervalActive = false;
-								iframe.contentWindow.postMessage({type: 'ACCESS', accessToken: authClient.accessToken});
+								iframe.contentWindow.postMessage({ type: 'ACCESS', accessToken: authClient.accessToken });
 							}
 						}, false);
 
 						intervalId = setInterval(() => {
 							if (isIntervalActive) {
-								iframe.contentWindow.postMessage({type: 'PING'}, '*');
+								iframe.contentWindow.postMessage({ type: 'PING' }, '*');
 							}
 						}, 1000);
 					};
@@ -273,7 +274,7 @@
 
 			globalThis.flyttSmartApi = flyttSmartApi;
 
-			document.addEventListener("DOMContentLoaded", function() {
+			document.addEventListener("DOMContentLoaded", function () {
 				flyttSmartApi.onDOMReady();
 			});
 
@@ -329,6 +330,7 @@
 	</style>
 
 </head>
+
 <body>
 
 	<button onclick="initDebugWidget()">Initialize Widget</button>
@@ -340,4 +342,5 @@
 	</div>
 
 </body>
+
 </html>

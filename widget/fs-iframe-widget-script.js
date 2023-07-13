@@ -35,7 +35,7 @@ class AuthClient extends EventTarget {
 	getAuthCode() {
 		return fetch(`${this.apiUrl}/external/code`, {
 			method: 'POST',
-			headers: {'clientId': this.clientId}
+			headers: { 'clientId': this.clientId }
 		})
 			.then(response => {
 				if (!response.ok) {
@@ -77,7 +77,7 @@ class AuthClient extends EventTarget {
 						'Content-Type': 'application/json',
 						'Authorization': 'Basic ' + btoa(this.clientId + ':' + this.authCode)
 					},
-					body: JSON.stringify({authCode: this.authCode})
+					body: JSON.stringify({ authCode: this.authCode })
 				});
 			})
 			.then(response => {
@@ -120,7 +120,7 @@ class AuthClient extends EventTarget {
 						'Content-Type': 'application/json',
 						'Authorization': 'Bearer ' + this.accessToken
 					},
-					body: JSON.stringify({pno: this.pno})
+					body: JSON.stringify({ pno: this.pno })
 				});
 			})
 			.then(response => {
@@ -287,13 +287,13 @@ class AuthClient extends EventTarget {
 						if (event.data.type === 'PONG' && isIntervalActive) {
 							clearInterval(intervalId);
 							isIntervalActive = false;
-							iframe.contentWindow.postMessage({type: 'ACCESS', accessToken: this.authClient.accessToken});
+							iframe.contentWindow.postMessage({ type: 'ACCESS', accessToken: this.authClient.accessToken });
 						}
 					}, false);
 
 					intervalId = setInterval(() => {
 						if (isIntervalActive) {
-							iframe.contentWindow.postMessage({type: 'PING'}, '*');
+							iframe.contentWindow.postMessage({ type: 'PING' }, '*');
 						}
 					}, 1000);
 

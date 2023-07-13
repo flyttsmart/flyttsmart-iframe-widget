@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<title>Title</title>
@@ -35,7 +36,7 @@
 				try {
 					const response = await fetch(`${this.apiUrl}/external/code`, {
 						method: 'POST',
-						headers: {'clientId': this.clientId}
+						headers: { 'clientId': this.clientId }
 					});
 					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 					this.authCode = await response.text();
@@ -65,7 +66,7 @@
 							'Content-Type': 'application/json',
 							'Authorization': 'Basic ' + btoa(this.clientId + ':' + this.authCode)
 						},
-						body: JSON.stringify({authCode: this.authCode})
+						body: JSON.stringify({ authCode: this.authCode })
 					});
 					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 					const responseBody = await response.json();
@@ -96,7 +97,7 @@
 							'Content-Type': 'application/json',
 							'Authorization': 'Bearer ' + this.accessToken
 						},
-						body: JSON.stringify({pno: this.pno})
+						body: JSON.stringify({ pno: this.pno })
 					});
 					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -196,7 +197,7 @@
 
 			globalThis.flyttSmartApi = flyttSmartApi;
 
-			document.addEventListener("DOMContentLoaded", function() {
+			document.addEventListener("DOMContentLoaded", function () {
 				flyttSmartApi.onDOMReady();
 			});
 
@@ -301,6 +302,7 @@
 	</script>
 
 </head>
+
 <body>
 
 	<button onclick="doHello()">FlyttSmart Test</button>
@@ -308,4 +310,5 @@
 	<div id="flyttsmart"></div>
 
 </body>
+
 </html>

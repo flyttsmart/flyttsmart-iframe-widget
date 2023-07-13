@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<title>Title</title>
@@ -10,7 +11,7 @@
 		// Widget Configuration
 		//
 		const FLYTTSMART_SETTINGS = {
-			apiUrl: 'https://api.flyttsmart.se',
+			apiUrl: 'http://localhost:3000',
 			baseUrl: 'http://localhost:3000',
 			clientId: '5f1b0b3b4b0b0b0b0b0b0b0b',
 			pno: '199001010000',
@@ -20,10 +21,116 @@
 	<!--<script src="https://api.flyttsmart.com/widget.js"></script>-->
 
 	<script>
+		class AuthClient extends EventTarget {
+			constructor(apiUrl, baseUrl, clientId, pno) {
+				super();
+				this.apiUrl = apiUrl;
+				this.baseUrl = baseUrl;
+				this.clientId = clientId;
+				this.pno = pno;
+				this.authCode = null;
+				this.accessToken = null;
+			}
+
+			async getAuthCode() {
+				try {
+					const response = await fetch(`${this.apiUrl}/external/code`, {
+						method: 'POST',
+						headers: { 'clientId': this.clientId }
+					});
+					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+					this.authCode = await response.text();
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: 'Auth code received...',
+							statusType: 'success'
+						}
+					}));
+				} catch (error) {
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: error.message,
+							statusType: 'error'
+						}
+					}));
+				}
+			}
+
+			async getAccessToken() {
+				try {
+					await this.getAuthCode();
+					const response = await fetch(`${this.apiUrl}/external/token`, {
+						method: 'POST',
+						headers: {
+							'clientId': this.clientId,
+							'Content-Type': 'application/json',
+							'Authorization': 'Basic ' + btoa(this.clientId + ':' + this.authCode)
+						},
+						body: JSON.stringify({ authCode: this.authCode })
+					});
+					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+					const responseBody = await response.json();
+					this.accessToken = responseBody.accessToken;
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: 'Access token received...',
+							statusType: 'success'
+						}
+					}));
+				} catch (error) {
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: error.message,
+							statusType: 'error'
+						}
+					}));
+				}
+			}
+
+			async loginUser() {
+				try {
+					await this.getAccessToken();
+					const response = await fetch(`${this.apiUrl}/external/users/login`, {
+						method: 'POST',
+						headers: {
+							'clientId': this.clientId,
+							'Content-Type': 'application/json',
+							'Authorization': 'Bearer ' + this.accessToken
+						},
+						body: JSON.stringify({ pno: this.pno })
+					});
+					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+					const rawBody = await response.text();
+					const data = JSON.parse(rawBody);
+					const url = new URL("https://" + data.url);
+
+					this.accessToken = url.searchParams.get("token");
+
+					console.debug("*** this.accessToken ::", this.accessToken);
+
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: 'User logged in...',
+							statusType: 'success',
+							token: this.accessToken
+						}
+					}));
+				} catch (error) {
+					this.dispatchEvent(new CustomEvent('statusEvent', {
+						detail: {
+							statusText: error.message,
+							statusType: 'error'
+						}
+					}));
+				}
+			}
+		}
+
 		(function (global) {
 			let flyttSmartApi = {
 				isInitialized: false,
-				baseUrl: '',
+				baseUrl: 'http://127.0.0.1:3000',
 				clientId: '',
 				pno: '',
 				eventListeners: {
@@ -94,114 +201,8 @@
 		globalThis.flyttSmartApi.doCommand('NAVIGATE', 'www.google.com');
 		globalThis.flyttSmartApi.doCommand('LOG_OUT');
 
-		class AuthClient extends EventTarget {
-			constructor(apiUrl, baseUrl, clientId, pno) {
-				super();
-				this.apiUrl = apiUrl;
-				this.baseUrl = baseUrl;
-				this.clientId = clientId;
-				this.pno = pno;
-				this.authCode = null;
-				this.accessToken = null;
-			}
-
-			async getAuthCode() {
-				try {
-					const response = await fetch(`${this.apiUrl}/external/code`, {
-						method: 'POST',
-						headers: {'clientId': this.clientId}
-					});
-					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-					this.authCode = await response.text();
-					this.dispatchEvent(new CustomEvent('statusEvent', {
-						detail: {
-							statusText: 'Auth code received...',
-							statusType: 'success'
-						}
-					}));
-				} catch (error) {
-					this.dispatchEvent(new CustomEvent('statusEvent', {
-						detail: {
-							statusText: error.message,
-							statusType: 'error'
-						}
-					}));
-				}
-			}
-
-			async getAccessToken() {
-				try {
-					await this.getAuthCode();
-					const response = await fetch(`${this.apiUrl}/external/token`, {
-						method: 'POST',
-						headers: {
-							'clientId': this.clientId,
-							'Content-Type': 'application/json',
-							'Authorization': 'Basic ' + btoa(this.clientId + ':' + this.authCode)
-						},
-						body: JSON.stringify({authCode: this.authCode})
-					});
-					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-					const responseBody = await response.json();
-					this.accessToken = responseBody.accessToken;
-					this.dispatchEvent(new CustomEvent('statusEvent', {
-						detail: {
-							statusText: 'Access token received...',
-							statusType: 'success'
-						}
-					}));
-				} catch (error) {
-					this.dispatchEvent(new CustomEvent('statusEvent', {
-						detail: {
-							statusText: error.message,
-							statusType: 'error'
-						}
-					}));
-				}
-			}
-
-			async loginUser() {
-				try {
-					await this.getAccessToken();
-					const response = await fetch(`${this.apiUrl}/external/users/login`, {
-						method: 'POST',
-						headers: {
-							'clientId': this.clientId,
-							'Content-Type': 'application/json',
-							'Authorization': 'Bearer ' + this.accessToken
-						},
-						body: JSON.stringify({pno: this.pno})
-					});
-					if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-					const rawBody = await response.text();
-					const data = JSON.parse(rawBody);
-					const url = new URL("https://" + data.url);
-
-					this.accessToken = url.searchParams.get("token");
-
-					console.debug("*** this.accessToken ::", this.accessToken);
-
-					this.dispatchEvent(new CustomEvent('statusEvent', {
-						detail: {
-							statusText: 'User logged in...',
-							statusType: 'success',
-							token: this.accessToken
-						}
-					}));
-				} catch (error) {
-					this.dispatchEvent(new CustomEvent('statusEvent', {
-						detail: {
-							statusText: error.message,
-							statusType: 'error'
-						}
-					}));
-				}
-			}
-		}
-
 		const debug = true;
-		const DEBUG_URL = "http://localhost:3020/iframe.html";
+		const DEBUG_URL = "http://localhost:3001/external/modules/activities";
 		const EMBED_URL = "https://www.flyttsmart.se";
 		var IFRAME_URL = debug ? DEBUG_URL : EMBED_URL;
 
@@ -214,7 +215,7 @@
 			flyttsmartEl.appendChild(statusEl);
 			flyttsmartEl.appendChild(iframe);
 
-			const authClient = new AuthClient('http://127.0.0.1:3000', 'http://127.0.0.1:3000/', '9df13ab5-db6e-42ac-a67e-0c8906295688', '196009195824');
+			const authClient = new AuthClient('http://127.0.0.1:3000', 'http://127.0.0.1:3000/', 'b9264361-0ee8-4c73-bfcc-1cfc0611a8bb', '198705110792');
 
 			authClient.addEventListener('statusEvent', (event) => {
 				statusEl.textContent = event.detail.statusText;
@@ -225,8 +226,9 @@
 					if (event.detail.statusText === 'User logged in...') {
 						statusEl.style.display = 'none';
 						iframe.style.display = 'block';
-						IFRAME_URL += "?token=" + authClient.accessToken;
+						IFRAME_URL += "?token=" + authClient.accessToken + "&theme=fb";
 						iframe.src = IFRAME_URL;
+						iframe.width = '100%'
 					}
 				}
 			});
@@ -242,16 +244,22 @@
 					if (event.data.type === 'PONG' && isIntervalActive) {
 						clearInterval(intervalId);
 						isIntervalActive = false;
-						iframe.contentWindow.postMessage({type: 'ACCESS', accessToken: authClient.accessToken});
+						iframe.contentWindow.postMessage({ type: 'ACCESS', accessToken: authClient.accessToken });
 					}
 				}, false);
 
 				intervalId = setInterval(() => {
 					if (isIntervalActive) {
-						iframe.contentWindow.postMessage({type: 'PING'}, '*');
+						iframe.contentWindow.postMessage({ type: 'PING' }, '*');
 					}
 				}, 1000);
 			};
+
+			window.addEventListener('message', event => {
+				if (event.data.height > 0 && event.data.height) {
+					iframe.height = event.data.height + 'px';
+				}
+			})
 
 			await authClient.loginUser();
 		});
@@ -263,11 +271,13 @@
 	</script>
 
 </head>
+
 <body>
 
-	<button onclick="doHello()">FlyttSmart Test</button>
+	<!-- <button onclick="doHello()">FlyttSmart Test</button> -->
 
 	<div id="flyttsmart"></div>
 
 </body>
+
 </html>

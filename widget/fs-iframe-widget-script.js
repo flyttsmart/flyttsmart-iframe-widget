@@ -183,6 +183,7 @@ class AuthClient extends EventTarget {
 		apiUrl: 'https://api.flyttsmart.se',
 		domElementId: '#flyttsmartWidget',
 		baseUrl: '',
+		iframeUrl: 'https://www.flyttsmart.se',
 		clientId: '',
 		pno: '',
 		eventListeners: {
@@ -255,6 +256,7 @@ class AuthClient extends EventTarget {
 			}
 
 			return new Promise((resolve, reject) => {
+				this.iframeUrl = props.iframeUrl || this.iframeUrl;
 				this.apiUrl = props.apiUrl || this.apiUrl;
 				this.clientId = props.clientId || this.clientId;
 				this.pno = props.pno || this.pno;
@@ -313,8 +315,8 @@ class AuthClient extends EventTarget {
 					if (event.detail.statusText === 'User logged in...') {
 						statusEl.style.display = 'none';
 						widgetFrame.style.display = 'block';
-						IFRAME_URL += "?token=" + this.authClient.accessToken;
-						widgetFrame.src = IFRAME_URL;
+						const iframeUrl = this.iframeUrl + "?token=" + this.authClient.accessToken;
+						widgetFrame.src = iframeUrl;
 					}
 				}
 			});
@@ -441,17 +443,6 @@ class AuthClient extends EventTarget {
 	});
 
 })(window);
-
-
-//
-// Init API,
-// Attach event listeners, etc...
-
-const debug = false;
-const DEBUG_URL = "http://localhost:3020/iframe.html";
-const EMBED_URL = "https://www.flyttsmart.se";
-var IFRAME_URL = debug ? DEBUG_URL : EMBED_URL;
-
 
 /**
  * Initialize the widget.

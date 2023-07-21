@@ -353,7 +353,6 @@ class AuthClient extends EventTarget {
 					intervalId = setInterval(() => {
 						if (isIntervalActive) {
 							iframe.contentWindow.postMessage({type: 'PING'}, '*');
-							console.log("POST MESSAGE");
 						}
 					}, 1000);
 

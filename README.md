@@ -22,21 +22,14 @@ The widget needs a client ID and personal number (PNO) to be passed to the `init
 ## Usage
 
 ```javascript
-const FLYTTSMART_SETTINGS = {
-    apiUrl: 'https://api.flyttsmart.se',
-    baseUrl: 'http://localhost:3000',
+window.flyttSmartSettings = {
     clientId: '5f1b0b3b4b0b0b0b0b0b0b0b',
     pno: '199001010000',
     domElement: '#flyttsmartWidget',
 };
-
-flyttSmartApi.init(FLYTTSMART_SETTINGS);
-flyttSmartApi.initUI();
 ```
 
 Where:
-- `apiUrl` - the base URL for the Flyttsmart API.
-- `baseUrl` - the base URL for your app.
 - `clientId` - your client ID.
 - `pno` - a valid personal number.
 - `domElement` - the DOM element where the widget will be loaded.

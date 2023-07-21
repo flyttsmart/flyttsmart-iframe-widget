@@ -7,11 +7,29 @@
 	<script type="application/javascript" src="fs-iframe-widget-script.js"></script>
 </head>
 <body>
+
+	<script>
+		window.flyttSmartSettings = {
+			domElementId: "#flyttsmartWidget",
+			pno: "8108197856",
+			clientId: "U96848121-2013"
+		};
+
+		function debugFunc() {
+
+			globalThis.flyttSmartApi.debugMode = true;
+			const demp = globalThis.flyttSmartApi.debugDump();
+
+			console.log("DEBUG DUMP ::", demp);
+		}
+
+	</script>
+
 	<div class="container">
 		<div class="widget">
 			<h1>Flyttsmart Widget</h1>
 			<p class="status" id="status">Waiting for initialization...</p>
-			<button class="button" onclick="initDebugWidget()">Initialize Widget</button>
+			<button class="button" onclick="debugFunc()">Debug</button>
 			<div id="flyttsmartWidget"></div>
 		</div>
 	</div>

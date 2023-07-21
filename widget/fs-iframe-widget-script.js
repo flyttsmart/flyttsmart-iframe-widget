@@ -133,7 +133,7 @@ class AuthClient extends EventTarget {
 				const data = JSON.parse(rawBody);
 				const url = new URL("https://" + data.url);
 				this.accessToken = url.searchParams.get("token");
-				console.debug("*** this.accessToken ::", this.accessToken);
+				if (this.debug) console.debug("*** this.accessToken ::", this.accessToken);
 				this.dispatchEvent(new CustomEvent('statusEvent', {
 					detail: {
 						statusText: 'User logged in...',
@@ -153,13 +153,15 @@ class AuthClient extends EventTarget {
 	}
 
 	addEventListener(type, callback, options) {
+		super.addEventListener(type, callback, options);
 	}
 
 	dispatchEvent(event) {
-		return false;
+		return super.dispatchEvent(event);
 	}
 
 	removeEventListener(type, callback, options) {
+		super.removeEventListener(type, callback, options);
 	}
 }
 
@@ -170,6 +172,7 @@ class AuthClient extends EventTarget {
  */
 (function (global) {
 	const flyttSmartApi = {
+		debugMode: false,
 		iFrameOrigin: undefined,
 		uiElements: {
 			widgetOwner: null,
@@ -178,7 +181,7 @@ class AuthClient extends EventTarget {
 		},
 		isInitialized: false,
 		apiUrl: 'https://api.flyttsmart.se',
-		domElement: '#flyttsmartWidget',
+		domElementId: '#flyttsmartWidget',
 		baseUrl: '',
 		clientId: '',
 		pno: '',
@@ -193,24 +196,51 @@ class AuthClient extends EventTarget {
 		 * @memberof flyttSmartApi
 		 * @param {object} props - The properties to set.
 		 */
-		setProperties: function (props) {
+		assignSettings: function (props) {
+			props = props || {};
+
+			if (props.domElementId.length > 1 && props.domElementId.charAt(0) !== '#') {
+				props.domElementId = `#${props.domElementId}`;
+			}
+
+			if (!props.clientId || !props.pno) {
+				throw new Error('Missing required settings!');
+			}
+
 			for (let prop in props) {
 				if (this.hasOwnProperty(prop)) {
 					this[prop] = props[prop];
 				}
 			}
-			this.init();
 		},
+
+		debugDump: function () {
+			if (!this.debugMode) return;
+			const result = {
+				data: this.this
+			};
+
+			console.debug("flyttSmartApi ::", this);
+
+			return JSON.stringify(result, null, 4);
+		},
+
 		/**
 		 * Document ready event handler.
 		 *
 		 * @memberof flyttSmartApi
 		 */
 		onDOMReady: function () {
-			if (!this.isInitialized) {
-				this.initUI();
-				this.isInitialized = true;
+			this.domReady = true;
+			const settings = document.flyttSmartSettings || window.flyttSmartSettings;
+
+			if (settings) {
+				this.init(settings);
 			}
+		},
+
+		navigateTo: function (url) {
+			this.uiElements.widgetFrame.src = url;
 		},
 		/**
 		 * Initialize the IFrame API.
@@ -219,15 +249,33 @@ class AuthClient extends EventTarget {
 		 * @param {object} props - The initialization properties.
 		 * @returns {flyttSmartApi} - The flyttSmartApi object.
 		 */
-		init: function (props) {
-			this.apiUrl = props.apiUrl || this.apiUrl;
-			this.clientId = props.clientId || this.clientId;
-			this.pno = props.pno || this.pno;
-			this.domElement = props.domElement || this.domElement;
-			this.baseUrl = props.baseUrl || this.baseUrl;
-			this.authClient = new AuthClient(this.apiUrl, this.baseUrl, this.clientId, this.pno);
-			this.doCommand('API:INIT', props);
-			return this;
+		init: async function (props) {
+			if (!this.domReady) {
+				throw new Error('init() cannot be called unless DOM is ready!');
+			}
+
+			return new Promise((resolve, reject) => {
+				this.apiUrl = props.apiUrl || this.apiUrl;
+				this.clientId = props.clientId || this.clientId;
+				this.pno = props.pno || this.pno;
+				this.domElementId = props.domElement || this.domElementId;
+				this.baseUrl = props.baseUrl || this.baseUrl;
+				try {
+					this.authClient = new AuthClient(this.apiUrl, this.baseUrl, this.clientId, this.pno);
+					this.doCommand('API:INIT', props);
+
+					this.initUI();
+
+					resolve();
+				} catch (error) {
+					reject(error);
+				}
+			});
+		},
+
+		log: function (data) {
+			if (!this.debugMode) return;
+			console.log(data);
 		},
 
 		/**
@@ -236,10 +284,17 @@ class AuthClient extends EventTarget {
 		 * @memberof flyttSmartApi
 		 */
 		initUI: function () {
-			console.log("initUI ::", this.domElement);
-			const widgetOwner = document.querySelector(this.domElement);
+			if (!this.authClient) {
+				throw new Error('initUI cannot be called before init.');
+			}
+
+			if (this.isInitialized) return;
+			this.isInitialized = true;
+
+			this.log("initUI ::", this.domElementId);
+			const widgetOwner = document.querySelector(this.domElementId);
 			if (!widgetOwner) {
-				console.log('Error: Widget Owner not found');
+				this.log('Error: Widget Owner not found');
 				return;
 			}
 			const statusEl = document.createElement('div');
@@ -264,7 +319,11 @@ class AuthClient extends EventTarget {
 				}
 			});
 
-			this.doCommand('API:INIT_UI');
+			this.initIframe(widgetFrame).then(() => {
+				this.doCommand('API:INIT_UI');
+			}).catch((error) => {
+				this.log('initIframe ::', error);
+			});
 		},
 
 		/**
@@ -294,6 +353,7 @@ class AuthClient extends EventTarget {
 					intervalId = setInterval(() => {
 						if (isIntervalActive) {
 							iframe.contentWindow.postMessage({type: 'PING'}, '*');
+							console.log("POST MESSAGE");
 						}
 					}, 1000);
 
@@ -314,7 +374,8 @@ class AuthClient extends EventTarget {
 		 * @param {object} props - The initialization properties.
 		 */
 		initDebugWidget: function (props) {
-			this.initUI();
+			this.debugMode = true;
+			this.init(props);
 		},
 
 		/**
@@ -375,6 +436,7 @@ class AuthClient extends EventTarget {
 
 	global.flyttSmartApi = flyttSmartApi;
 
+
 	document.addEventListener("DOMContentLoaded", function () {
 		flyttSmartApi.onDOMReady();
 	});
@@ -386,7 +448,7 @@ class AuthClient extends EventTarget {
 // Init API,
 // Attach event listeners, etc...
 
-const debug = true;
+const debug = false;
 const DEBUG_URL = "http://localhost:3020/iframe.html";
 const EMBED_URL = "https://www.flyttsmart.se";
 var IFRAME_URL = debug ? DEBUG_URL : EMBED_URL;
@@ -398,7 +460,7 @@ var IFRAME_URL = debug ? DEBUG_URL : EMBED_URL;
  * @param {object} settings - The widget configuration settings.
  */
 function initWidget(settings) {
-	globalThis.flyttSmartApi.setProperties(settings);
+	globalThis.flyttSmartApi.assignSettings(setting);
 }
 
 globalThis.initWidget = initWidget;

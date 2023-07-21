@@ -86,10 +86,10 @@
 
 		// Example usage of setProperties and doCommand
 		if (FLYTTSMART_SETTINGS) {
-			flyttSmartApi.setProperties(FLYTTSMART_SETTINGS);
+			flyttSmartApi.assignSettings(FLYTTSMART_SETTINGS);
 		}
 
-		flyttSmartApi.setProperties();
+		flyttSmartApi.assignSettings();
 		globalThis.flyttSmartApi.doCommand('testCommand', 'testValue');
 		globalThis.flyttSmartApi.doCommand('NAVIGATE', 'www.google.com');
 		globalThis.flyttSmartApi.doCommand('LOG_OUT');

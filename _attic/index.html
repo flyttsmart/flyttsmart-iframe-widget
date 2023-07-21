@@ -144,7 +144,7 @@
 					widgetFrame: null
 				},
 				isInitialized: false,
-				apiUrl: 'https://api.flyttsmart.se',
+				apiUrl: 'https://flyttsmart.se/widget.js',
 				domElement: '#flyttsmartWidget',
 				baseUrl: '',
 				clientId: '',
@@ -191,7 +191,7 @@
 				 * Initialize the UI
 				 */
 				initUI: function () {
-					console.log("initUI ::", this.domElement);
+					this.log("initUI ::", this.domElement);
 					const widgetOwner = document.querySelector(this.domElement);
 					if(!widgetOwner) {
 						log('Error: Widget Owner not found');
